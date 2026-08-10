@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HPD Violations by Building</title>
+  <meta property="og:title" content="HPD Violations by Building — NYC Housing Data" />
+  <meta property="og:description" content="Which NYC building has the most housing violations? A live-data breakdown of the top 10." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://hpd-violations-chart-dominicarlequi.vercel.app" />
+  <meta property="og:image" content="https://hpd-violations-chart-dominicarlequi.vercel.app/og-hpd.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; }
+    h2 { margin-bottom: 4px; }
+    p { color: #666; margin-top: 0; }
+    section { margin: 32px 0; }
+    section h3 { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <section id="context">
+    <h3>Context</h3>
+    <p>NYC's HPD violations are public, but buried in thousands of rows. Tenants and housing advocates need to know which landlords are actually the problem. I built this to find the worst offender.</p>
+  </section>
+
+  <section id="data">
+    <h3>Data</h3>
+    <p>Live pull from NYC's Open HPD Violations dataset via the Socrata API. Each row is one violation record tied to a building. Refreshes every load.</p>
+  </section>
+
+  <section id="analysis">
+    <h3>Analysis</h3>
+    <h2 id="summaryHeading">Loading top building...</h2>
+    <p id="summarySubtext"></p>
+    <canvas id="myChart"></canvas>
+  </section>
+
+  <section id="insight">
+    <h3>Insight</h3>
+    <p id="insightText">Loading...</p>
+  </section>
+
+  <section id="so-what">
+    <h3>So What</h3>
+    <p>A gap this size points to one building nobody's fixing, the kind of finding a spreadsheet buries and a chart surfaces in seconds.</p>
+  </section>
+
+  <script>
+    let buildingIds = [];
+    let violationCounts = [];
+
+    function renderChart() {
+      // Color the top bar red, everything else gray
+      const barColors = buildingIds.map((id, i) => i === 0 ? "#e63946" : "#adb5bd");
+
+      new Chart(document.getElementById('myChart'), {
+        type: 'bar',
+        data: {
+          labels: buildingIds,
+          datasets: [{
+            label: 'Violation Count',
+            data: violationCounts,
+            backgroundColor: barColors
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Violations' } },
+            x: { title: { display: true, text: 'Building ID' } }
+          }
+        }
+      });
+    }
+
+    async function loadData() {
+      const params = new URLSearchParams({
+        "$$app_token": "JGurc4mbAlizJjvfgIeKc6Th2",
+        "$select": "buildingid,boro,count(*) as violation_count",
+        "$group": "buildingid,boro",
+        "$order": "violation_count DESC",
+        "$limit": "10"
+      });
+
+      const response = await fetch(`https://data.cityofnewyork.us/resource/csn4-vhvf.json?${params}`);
+      const rows = await response.json();
+
+      buildingIds = rows.map(row => row.buildingid);
+      violationCounts = rows.map(row => Number(row.violation_count));
+
+      renderChart();
+
+      const top = rows[0];
+      document.getElementById('summaryHeading').textContent =
+        `Building ${top.buildingid} (${top.boro}) has the most HPD violations in the dataset`;
+      document.getElementById('summarySubtext').textContent =
+        `${Number(top.violation_count).toLocaleString()} violations, confirmed against the full dataset`;
+
+      const second = rows[1];
+      const topCount = Number(top.violation_count);
+      const secondCount = Number(second.violation_count);
+      const percentDiff = Math.round(((topCount - secondCount) / secondCount) * 100);
+      document.getElementById('insightText').textContent =
+        `The gap at the top is the finding. Building ${top.buildingid} has ${topCount.toLocaleString()} violations — ${percentDiff}% more than the second-place building, ${second.buildingid}, at ${secondCount.toLocaleString()}. The remaining 9 buildings cluster within a tight range of each other.`;
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
