@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8" />
   <title>HPD Violations by Building</title>
   <meta property="og:title" content="HPD Violations by Building — NYC Housing Data" />
   <meta property="og:description" content="Which NYC building has the most housing violations? A live-data breakdown of the top 10." />
@@ -26,28 +27,35 @@
   <script>
     let buildingIds = [];
     let boroughs = [];
-    let violationCounts = [];
+    let classCounts = { A: [], B: [], C: [] };
 
     function renderChart() {
-      // Color the top bar red, everything else gray
-      const barColors = buildingIds.map((id, i) => i === 0 ? "#e63946" : "#adb5bd");
       const labels = buildingIds.map((id, i) => [id, boroughs[i]]);
+      // Color by violation class: A (least severe) to C (most severe)
+      const classColors = { A: "#fca311", B: "#e85d04", C: "#9d0208" };
 
       new Chart(document.getElementById('myChart'), {
         type: 'bar',
         data: {
           labels: labels,
-          datasets: [{
-            label: 'Violation Count',
-            data: violationCounts,
-            backgroundColor: barColors
-          }]
+          datasets: ['A', 'B', 'C'].map(c => ({
+            label: `Class ${c}`,
+            data: classCounts[c],
+            backgroundColor: classColors[c]
+          }))
         },
         options: {
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                footer: items => `Total: ${items.reduce((sum, item) => sum + item.parsed.y, 0)}`
+              }
+            }
+          },
           scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Violations' } },
-            x: { title: { display: true, text: 'Building ID (Borough)' } }
+            y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Violations' } },
+            x: { stacked: true, title: { display: true, text: 'Building ID (Borough)' } }
           }
         }
       });
@@ -67,7 +75,6 @@
 
       buildingIds = rows.map(row => row.buildingid);
       boroughs = rows.map(row => row.boro);
-      violationCounts = rows.map(row => Number(row.violation_count));
 
       // Date range covered by the violations behind these buildings
       const idList = buildingIds.map(id => `'${id}'`).join(',');
@@ -81,6 +88,24 @@
       const fmt = d => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
       document.getElementById('dateRange').textContent =
         `Violations recorded ${fmt(range.mindate)} – ${fmt(range.maxdate)}`;
+
+      // Class (A/B/C) breakdown for these same buildings
+      const classParams = new URLSearchParams({
+        "$$app_token": "JGurc4mbAlizJjvfgIeKc6Th2",
+        "$select": "buildingid,class,count(*) as cnt",
+        "$group": "buildingid,class",
+        "$where": `buildingid in(${idList})`
+      });
+      const classResponse = await fetch(`https://data.cityofnewyork.us/resource/csn4-vhvf.json?${classParams}`);
+      const classRows = await classResponse.json();
+
+      classCounts = { A: [], B: [], C: [] };
+      buildingIds.forEach(id => {
+        ['A', 'B', 'C'].forEach(c => {
+          const match = classRows.find(r => r.buildingid === id && r.class === c);
+          classCounts[c].push(match ? Number(match.cnt) : 0);
+        });
+      });
 
       renderChart();
 
