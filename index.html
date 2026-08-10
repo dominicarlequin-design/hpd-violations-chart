@@ -25,16 +25,18 @@
 
   <script>
     let buildingIds = [];
+    let boroughs = [];
     let violationCounts = [];
 
     function renderChart() {
       // Color the top bar red, everything else gray
       const barColors = buildingIds.map((id, i) => i === 0 ? "#e63946" : "#adb5bd");
+      const labels = buildingIds.map((id, i) => [id, boroughs[i]]);
 
       new Chart(document.getElementById('myChart'), {
         type: 'bar',
         data: {
-          labels: buildingIds,
+          labels: labels,
           datasets: [{
             label: 'Violation Count',
             data: violationCounts,
@@ -45,7 +47,7 @@
           plugins: { legend: { display: false } },
           scales: {
             y: { beginAtZero: true, title: { display: true, text: 'Violations' } },
-            x: { title: { display: true, text: 'Building ID' } }
+            x: { title: { display: true, text: 'Building ID (Borough)' } }
           }
         }
       });
@@ -64,6 +66,7 @@
       const rows = await response.json();
 
       buildingIds = rows.map(row => row.buildingid);
+      boroughs = rows.map(row => row.boro);
       violationCounts = rows.map(row => Number(row.violation_count));
 
       // Date range covered by the violations behind these buildings
