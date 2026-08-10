@@ -72,6 +72,15 @@
     <p id="insightText">Loading...</p>
   </section>
 
+  <hr class="section-divider" />
+
+  <section id="boroughSeverity">
+    <h2>Violation Severity by Borough</h2>
+    <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough — live pull, full dataset.</p>
+    <div class="chart-card"><canvas id="boroughChart"></canvas></div>
+    <p id="boroughInsightText">Loading...</p>
+  </section>
+
   <script>
     const APP_TOKEN = "JGurc4mbAlizJjvfgIeKc6Th2";
     const ENDPOINT = "https://data.cityofnewyork.us/resource/csn4-vhvf.json";
@@ -110,6 +119,56 @@
           }
         }
       });
+    }
+
+    function renderBoroughChart(boroughClassCounts) {
+      const boroughList = Object.keys(boroughClassCounts);
+      const pct = {};
+      boroughList.forEach(b => {
+        const { A, B, C } = boroughClassCounts[b];
+        const total = A + B + C;
+        pct[b] = { A: A / total * 100, B: B / total * 100, C: C / total * 100 };
+      });
+
+      // Highest share of hazardous Class C violations first
+      boroughList.sort((a, b) => pct[b].C - pct[a].C);
+
+      new Chart(document.getElementById('boroughChart'), {
+        type: 'bar',
+        data: {
+          labels: boroughList,
+          datasets: ['A', 'B', 'C'].map(c => ({
+            label: `Class ${c}`,
+            data: boroughList.map(b => pct[b][c]),
+            backgroundColor: classColors[c]
+          }))
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: item => {
+                  const b = item.label;
+                  const c = ['A', 'B', 'C'][item.datasetIndex];
+                  const raw = boroughClassCounts[b][c];
+                  return `Class ${c}: ${item.parsed.x.toFixed(1)}% (${raw.toLocaleString()} violations)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { stacked: true, max: 100, title: { display: true, text: '% of violations' } },
+            y: { stacked: true }
+          }
+        }
+      });
+
+      const worst = boroughList[0];
+      const best = boroughList[boroughList.length - 1];
+      document.getElementById('boroughInsightText').textContent =
+        `${worst} has the highest share of hazardous Class C violations at ${pct[worst].C.toFixed(1)}%, compared to ${pct[best].C.toFixed(1)}% in ${best}.`;
     }
 
     async function loadData() {
@@ -174,7 +233,27 @@
         `The gap at the top is the finding. Building ${top.buildingid} has ${topCount.toLocaleString()} violations — ${percentDiff}% more than the second-place building, ${second.buildingid}, at ${secondCount.toLocaleString()}. The remaining 9 buildings cluster within a tight range of each other.`;
     }
 
+    async function loadBoroughSeverity() {
+      const params = new URLSearchParams({
+        "$$app_token": APP_TOKEN,
+        "$select": "boro,class,count(*) as cnt",
+        "$group": "boro,class"
+      });
+      const response = await fetch(`${ENDPOINT}?${params}`);
+      const rows = await response.json();
+
+      const boroughClassCounts = {};
+      rows.forEach(row => {
+        if (!['A', 'B', 'C'].includes(row.class)) return;
+        if (!boroughClassCounts[row.boro]) boroughClassCounts[row.boro] = { A: 0, B: 0, C: 0 };
+        boroughClassCounts[row.boro][row.class] = Number(row.cnt);
+      });
+
+      renderBoroughChart(boroughClassCounts);
+    }
+
     loadData();
+    loadBoroughSeverity();
   </script>
 </body>
 </html>
