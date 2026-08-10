@@ -9,30 +9,81 @@
   <meta property="og:url" content="https://hpd-violations-chart-dominicarlequi.vercel.app" />
   <meta property="og:image" content="https://hpd-violations-chart-dominicarlequi.vercel.app/og-hpd.png" />
   <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <style>
-    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; }
-    h2 { margin-bottom: 4px; }
-    p { color: #666; margin-top: 0; }
-    #dateRange { font-size: 0.9em; color: #999; margin-bottom: 24px; }
+    :root {
+      --cream: #FAF7F2;
+      --ink: #26392E;
+      --sage: #7C9A82;
+      --sage-light: #EAF0EA;
+      --butter: #E3B23C;
+      --clay: #A8402F;
+      --clay-light: #F6E8E4;
+      --stone: #6B6357;
+      --hairline: #E2DACB;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: var(--cream);
+      color: var(--ink);
+    }
+    h2 {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+    p { color: var(--stone); margin-top: 0; }
+    #dateRange, .section-subtext {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8em;
+      color: var(--stone);
+    }
+    #dateRange { margin-bottom: 24px; }
+    .section-subtext { margin-bottom: 16px; }
+    .chart-card {
+      background: #fff;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--hairline);
+      margin: 48px 0;
+    }
   </style>
 </head>
 <body>
-  <h2 id="summaryHeading">Loading top building...</h2>
-  <p id="summarySubtext"></p>
-  <p id="dateRange">Loading date range...</p>
-  <canvas id="myChart"></canvas>
-  <p id="insightText">Loading...</p>
+  <section id="topViolator">
+    <h2 id="summaryHeading">Loading top building...</h2>
+    <p id="summarySubtext"></p>
+    <p id="dateRange">Loading date range...</p>
+    <div class="chart-card"><canvas id="myChart"></canvas></div>
+    <p id="insightText">Loading...</p>
+  </section>
 
   <script>
+    const APP_TOKEN = "JGurc4mbAlizJjvfgIeKc6Th2";
+    const ENDPOINT = "https://data.cityofnewyork.us/resource/csn4-vhvf.json";
+    // Class colors shared across charts: sage (minor) -> butter -> clay (hazardous)
+    const classColors = { A: "#7C9A82", B: "#E3B23C", C: "#A8402F" };
+
     let buildingIds = [];
     let boroughs = [];
     let classCounts = { A: [], B: [], C: [] };
 
     function renderChart() {
       const labels = buildingIds.map((id, i) => [id, boroughs[i]]);
-      // Color by violation class: A (least severe) to C (most severe)
-      const classColors = { A: "#fca311", B: "#e85d04", C: "#9d0208" };
 
       new Chart(document.getElementById('myChart'), {
         type: 'bar',
@@ -63,14 +114,14 @@
 
     async function loadData() {
       const params = new URLSearchParams({
-        "$$app_token": "JGurc4mbAlizJjvfgIeKc6Th2",
+        "$$app_token": APP_TOKEN,
         "$select": "buildingid,boro,count(*) as violation_count",
         "$group": "buildingid,boro",
         "$order": "violation_count DESC",
         "$limit": "10"
       });
 
-      const response = await fetch(`https://data.cityofnewyork.us/resource/csn4-vhvf.json?${params}`);
+      const response = await fetch(`${ENDPOINT}?${params}`);
       const rows = await response.json();
 
       buildingIds = rows.map(row => row.buildingid);
@@ -79,11 +130,11 @@
       // Date range covered by the violations behind these buildings
       const idList = buildingIds.map(id => `'${id}'`).join(',');
       const rangeParams = new URLSearchParams({
-        "$$app_token": "JGurc4mbAlizJjvfgIeKc6Th2",
+        "$$app_token": APP_TOKEN,
         "$select": "min(inspectiondate) as mindate, max(inspectiondate) as maxdate",
         "$where": `buildingid in(${idList})`
       });
-      const rangeResponse = await fetch(`https://data.cityofnewyork.us/resource/csn4-vhvf.json?${rangeParams}`);
+      const rangeResponse = await fetch(`${ENDPOINT}?${rangeParams}`);
       const [range] = await rangeResponse.json();
       const fmt = d => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
       document.getElementById('dateRange').textContent =
@@ -91,12 +142,12 @@
 
       // Class (A/B/C) breakdown for these same buildings
       const classParams = new URLSearchParams({
-        "$$app_token": "JGurc4mbAlizJjvfgIeKc6Th2",
+        "$$app_token": APP_TOKEN,
         "$select": "buildingid,class,count(*) as cnt",
         "$group": "buildingid,class",
         "$where": `buildingid in(${idList})`
       });
-      const classResponse = await fetch(`https://data.cityofnewyork.us/resource/csn4-vhvf.json?${classParams}`);
+      const classResponse = await fetch(`${ENDPOINT}?${classParams}`);
       const classRows = await classResponse.json();
 
       classCounts = { A: [], B: [], C: [] };
