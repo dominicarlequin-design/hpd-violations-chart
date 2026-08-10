@@ -13,11 +13,13 @@
     body { font-family: sans-serif; max-width: 700px; margin: 40px auto; }
     h2 { margin-bottom: 4px; }
     p { color: #666; margin-top: 0; }
+    #dateRange { font-size: 0.9em; color: #999; margin-bottom: 24px; }
   </style>
 </head>
 <body>
   <h2 id="summaryHeading">Loading top building...</h2>
   <p id="summarySubtext"></p>
+  <p id="dateRange">Loading date range...</p>
   <canvas id="myChart"></canvas>
   <p id="insightText">Loading...</p>
 
@@ -63,6 +65,19 @@
 
       buildingIds = rows.map(row => row.buildingid);
       violationCounts = rows.map(row => Number(row.violation_count));
+
+      // Date range covered by the violations behind these buildings
+      const idList = buildingIds.map(id => `'${id}'`).join(',');
+      const rangeParams = new URLSearchParams({
+        "$$app_token": "JGurc4mbAlizJjvfgIeKc6Th2",
+        "$select": "min(inspectiondate) as mindate, max(inspectiondate) as maxdate",
+        "$where": `buildingid in(${idList})`
+      });
+      const rangeResponse = await fetch(`https://data.cityofnewyork.us/resource/csn4-vhvf.json?${rangeParams}`);
+      const [range] = await rangeResponse.json();
+      const fmt = d => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      document.getElementById('dateRange').textContent =
+        `Violations recorded ${fmt(range.mindate)} – ${fmt(range.maxdate)}`;
 
       renderChart();
 
