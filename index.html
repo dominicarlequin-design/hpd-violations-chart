@@ -29,7 +29,7 @@
     body {
       font-family: 'DM Sans', system-ui, sans-serif;
       max-width: 700px;
-      margin: 40px auto;
+      margin: 20px auto;
       padding: 0 20px;
       background: var(--cream);
       color: var(--ink);
@@ -38,29 +38,36 @@
       font-family: 'Instrument Serif', serif;
       font-style: italic;
       font-weight: 400;
-      font-size: 28px;
-      margin-bottom: 4px;
+      font-size: 24px;
+      margin-top: 0;
+      margin-bottom: 3px;
+      line-height: 1.15;
     }
     p { color: var(--stone); margin-top: 0; }
     #dateRange, .section-subtext {
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.8em;
+      font-size: 0.75em;
       color: var(--stone);
     }
-    #dateRange { margin-bottom: 16px; }
-    .section-subtext { margin-bottom: 12px; }
+    #dateRange { margin-bottom: 8px; }
+    .section-subtext { margin-bottom: 8px; }
+    #summarySubtext, #insightText, #boroughInsightText {
+      font-size: 0.85em;
+      line-height: 1.4;
+    }
     .chart-card {
       position: relative;
       background: #fff;
       border: 1px solid var(--hairline);
       border-radius: 6px;
-      padding: 20px;
-      margin: 12px 0;
+      padding: 16px;
+      margin: 8px 0;
+      height: 240px;
     }
     .section-divider {
       border: none;
       border-top: 1px solid var(--hairline);
-      margin: 28px 0;
+      margin: 20px 0;
     }
     .view-toggle {
       display: inline-flex;
@@ -68,13 +75,13 @@
       background: var(--sage-light);
       border-radius: 8px;
       padding: 4px;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
     .toggle-btn {
       font-family: 'DM Sans', system-ui, sans-serif;
       font-weight: 600;
       font-size: 13px;
-      padding: 7px 14px;
+      padding: 6px 12px;
       border: none;
       border-radius: 6px;
       background: transparent;
@@ -119,6 +126,9 @@
     #buildingSearchButton:disabled {
       background: var(--stone);
       cursor: not-allowed;
+    }
+    #searchError[hidden] {
+      display: none;
     }
     #searchError {
       display: flex;
@@ -233,6 +243,7 @@
           }))
         },
         options: {
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: true },
             tooltip: {
@@ -273,6 +284,7 @@
         },
         options: {
           indexAxis: 'y',
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: true, position: 'bottom' },
             tooltip: {
@@ -434,6 +446,7 @@
           }]
         },
         options: {
+          maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Violations' } } }
         }
