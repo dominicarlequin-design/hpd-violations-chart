@@ -98,9 +98,36 @@
       cursor: not-allowed;
     }
     #searchError {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--clay-light);
+      border: 1px solid var(--clay);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin: 0 0 8px;
+    }
+    #searchErrorText {
+      flex: 1;
+      margin: 0;
       color: var(--clay);
       font-size: 0.85em;
-      margin: 0 0 8px;
+    }
+    #searchRetryButton {
+      flex-shrink: 0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 0.85em;
+      padding: 6px 12px;
+      border: 1px solid var(--clay);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--clay);
+      cursor: pointer;
+    }
+    #searchRetryButton:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .chart-skeleton {
       position: absolute;
@@ -123,7 +150,10 @@
       <input type="text" id="buildingSearchInput" placeholder="e.g. 393321" autocomplete="off" required />
       <button type="submit" id="buildingSearchButton">Search</button>
     </form>
-    <p id="searchError" hidden></p>
+    <div id="searchError" hidden>
+      <p id="searchErrorText"></p>
+      <button type="button" id="searchRetryButton" hidden>Retry</button>
+    </div>
     <div class="chart-card">
       <div class="chart-skeleton" id="searchSkeleton" hidden></div>
       <canvas id="searchChart"></canvas>
@@ -322,11 +352,23 @@
     }
 
     let searchChartInstance = null;
+    let lastSearchedBuildingId = null;
 
     function setSearchLoading(isLoading) {
       document.getElementById('buildingSearchInput').disabled = isLoading;
       document.getElementById('buildingSearchButton').disabled = isLoading;
+      document.getElementById('searchRetryButton').disabled = isLoading;
       document.getElementById('searchSkeleton').hidden = !isLoading;
+    }
+
+    function showSearchError(message, { retryable }) {
+      document.getElementById('searchErrorText').textContent = message;
+      document.getElementById('searchError').hidden = false;
+      document.getElementById('searchRetryButton').hidden = !retryable;
+    }
+
+    function hideSearchError() {
+      document.getElementById('searchError').hidden = true;
     }
 
     function renderSearchChart(buildingId, counts) {
@@ -362,20 +404,9 @@
         `Building ${buildingId}: ${total.toLocaleString()} total violations.`;
     }
 
-    document.getElementById('searchForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const searchErrorEl = document.getElementById('searchError');
-      const buildingId = document.getElementById('buildingSearchInput').value.trim();
-
-      searchErrorEl.hidden = true;
-      document.getElementById('searchResultText').textContent = '';
-
-      if (!/^\d+$/.test(buildingId)) {
-        searchErrorEl.textContent = 'Enter a numeric Building ID.';
-        searchErrorEl.hidden = false;
-        return;
-      }
-
+    async function performSearch(buildingId) {
+      lastSearchedBuildingId = buildingId;
+      hideSearchError();
       setSearchLoading(true);
 
       try {
@@ -386,7 +417,7 @@
           "$group": "class"
         });
         const response = await fetch(`${ENDPOINT}?${params}`);
-        if (!response.ok) throw new Error('Request failed');
+        if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
         const rows = await response.json();
 
         const counts = { A: 0, B: 0, C: 0 };
@@ -398,11 +429,29 @@
 
         renderSearchChart(buildingId, counts);
       } catch (err) {
-        searchErrorEl.textContent = 'Something went wrong fetching that building. Try again.';
-        searchErrorEl.hidden = false;
+        console.error('Building search failed:', err);
+        showSearchError("Couldn't load this building's data. Try again.", { retryable: true });
       } finally {
         setSearchLoading(false);
       }
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const buildingId = document.getElementById('buildingSearchInput').value.trim();
+
+      hideSearchError();
+
+      if (!/^\d+$/.test(buildingId)) {
+        showSearchError('Enter a numeric Building ID.', { retryable: false });
+        return;
+      }
+
+      performSearch(buildingId);
+    });
+
+    document.getElementById('searchRetryButton').addEventListener('click', () => {
+      if (lastSearchedBuildingId) performSearch(lastSearchedBuildingId);
     });
 
     loadData();
