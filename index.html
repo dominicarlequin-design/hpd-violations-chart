@@ -47,20 +47,43 @@
       font-size: 0.8em;
       color: var(--stone);
     }
-    #dateRange { margin-bottom: 24px; }
-    .section-subtext { margin-bottom: 16px; }
+    #dateRange { margin-bottom: 16px; }
+    .section-subtext { margin-bottom: 12px; }
     .chart-card {
       position: relative;
       background: #fff;
       border: 1px solid var(--hairline);
       border-radius: 6px;
       padding: 20px;
-      margin: 16px 0;
+      margin: 12px 0;
     }
     .section-divider {
       border: none;
       border-top: 1px solid var(--hairline);
-      margin: 48px 0;
+      margin: 28px 0;
+    }
+    .view-toggle {
+      display: inline-flex;
+      gap: 4px;
+      background: var(--sage-light);
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+    .toggle-btn {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 7px 14px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--stone);
+      cursor: pointer;
+    }
+    .toggle-btn.active {
+      background: var(--ink);
+      color: var(--cream);
     }
     #searchForm {
       display: flex;
@@ -145,9 +168,8 @@
 <body>
   <section id="buildingSearch">
     <h2>Search a Building</h2>
-    <p class="section-subtext">Look up a specific Building ID to see its violation class breakdown.</p>
     <form id="searchForm">
-      <input type="text" id="buildingSearchInput" placeholder="e.g. 393321" autocomplete="off" required />
+      <input type="text" id="buildingSearchInput" placeholder="Enter a Building ID to see its violation history (e.g. 393321)" autocomplete="off" required />
       <button type="submit" id="buildingSearchButton">Search</button>
     </form>
     <div id="searchError" hidden>
@@ -163,21 +185,26 @@
 
   <hr class="section-divider" />
 
-  <section id="topViolator">
-    <h2 id="summaryHeading">Loading top building...</h2>
-    <p id="summarySubtext"></p>
-    <p id="dateRange">Loading date range...</p>
-    <div class="chart-card"><canvas id="myChart"></canvas></div>
-    <p id="insightText">Loading...</p>
-  </section>
+  <section id="violationsOverview">
+    <div class="view-toggle" role="tablist">
+      <button type="button" class="toggle-btn active" id="viewByBuildingBtn" role="tab" aria-selected="true">By Building</button>
+      <button type="button" class="toggle-btn" id="viewByBoroughBtn" role="tab" aria-selected="false">By Borough</button>
+    </div>
 
-  <hr class="section-divider" />
+    <div id="byBuildingPanel">
+      <h2 id="summaryHeading">Loading top building...</h2>
+      <p id="summarySubtext"></p>
+      <p id="dateRange">Loading date range...</p>
+      <div class="chart-card"><canvas id="myChart"></canvas></div>
+      <p id="insightText">Loading...</p>
+    </div>
 
-  <section id="boroughSeverity">
-    <h2>Violation Severity by Borough</h2>
-    <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough — live pull, last 5 years.</p>
-    <div class="chart-card"><canvas id="boroughChart"></canvas></div>
-    <p id="boroughInsightText">Loading...</p>
+    <div id="byBoroughPanel" hidden>
+      <h2>Violation Severity by Borough</h2>
+      <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough — live pull, last 5 years.</p>
+      <div class="chart-card"><canvas id="boroughChart"></canvas></div>
+      <p id="boroughInsightText">Loading...</p>
+    </div>
   </section>
 
   <script>
@@ -189,11 +216,13 @@
     let buildingIds = [];
     let boroughs = [];
     let classCounts = { A: [], B: [], C: [] };
+    let topChartInstance = null;
+    let boroughChartInstance = null;
 
     function renderChart() {
       const labels = buildingIds.map((id, i) => [id, boroughs[i]]);
 
-      new Chart(document.getElementById('myChart'), {
+      topChartInstance = new Chart(document.getElementById('myChart'), {
         type: 'bar',
         data: {
           labels: labels,
@@ -232,7 +261,7 @@
       // Highest share of hazardous Class C violations first
       boroughList.sort((a, b) => pct[b].C - pct[a].C);
 
-      new Chart(document.getElementById('boroughChart'), {
+      boroughChartInstance = new Chart(document.getElementById('boroughChart'), {
         type: 'bar',
         data: {
           labels: boroughList,
@@ -464,6 +493,22 @@
     document.getElementById('searchRetryButton').addEventListener('click', () => {
       if (lastSearchedBuildingId) performSearch(lastSearchedBuildingId);
     });
+
+    function setView(view) {
+      const isBuilding = view === 'building';
+      document.getElementById('byBuildingPanel').hidden = !isBuilding;
+      document.getElementById('byBoroughPanel').hidden = isBuilding;
+      document.getElementById('viewByBuildingBtn').classList.toggle('active', isBuilding);
+      document.getElementById('viewByBoroughBtn').classList.toggle('active', !isBuilding);
+      document.getElementById('viewByBuildingBtn').setAttribute('aria-selected', String(isBuilding));
+      document.getElementById('viewByBoroughBtn').setAttribute('aria-selected', String(!isBuilding));
+
+      if (isBuilding && topChartInstance) topChartInstance.resize();
+      if (!isBuilding && boroughChartInstance) boroughChartInstance.resize();
+    }
+
+    document.getElementById('viewByBuildingBtn').addEventListener('click', () => setView('building'));
+    document.getElementById('viewByBoroughBtn').addEventListener('click', () => setView('borough'));
 
     loadData();
     loadBoroughSeverity();
