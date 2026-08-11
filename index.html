@@ -175,7 +175,7 @@
 
   <section id="boroughSeverity">
     <h2>Violation Severity by Borough</h2>
-    <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough — live pull, full dataset.</p>
+    <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough — live pull, last 5 years.</p>
     <div class="chart-card"><canvas id="boroughChart"></canvas></div>
     <p id="boroughInsightText">Loading...</p>
   </section>
@@ -271,9 +271,11 @@
     }
 
     async function loadData() {
+      const sinceDate = isoDateYearsAgo(5);
       const params = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "buildingid,boro,count(*) as violation_count",
+        "$where": `inspectiondate >= '${sinceDate}'`,
         "$group": "buildingid,boro",
         "$order": "violation_count DESC",
         "$limit": "10"
@@ -285,12 +287,12 @@
       buildingIds = rows.map(row => row.buildingid);
       boroughs = rows.map(row => row.boro);
 
-      // Date range covered by the violations behind these buildings
+      // Date range covered by the violations behind these buildings, within the 5-year window
       const idList = buildingIds.map(id => `'${id}'`).join(',');
       const rangeParams = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "min(inspectiondate) as mindate, max(inspectiondate) as maxdate",
-        "$where": `buildingid in(${idList})`
+        "$where": `buildingid in(${idList}) AND inspectiondate >= '${sinceDate}'`
       });
       const rangeResponse = await fetch(`${ENDPOINT}?${rangeParams}`);
       const [range] = await rangeResponse.json();
@@ -298,12 +300,12 @@
       document.getElementById('dateRange').textContent =
         `Violations recorded ${fmt(range.mindate)} – ${fmt(range.maxdate)}`;
 
-      // Class (A/B/C) breakdown for these same buildings
+      // Class (A/B/C) breakdown for these same buildings, within the 5-year window
       const classParams = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "buildingid,class,count(*) as cnt",
         "$group": "buildingid,class",
-        "$where": `buildingid in(${idList})`
+        "$where": `buildingid in(${idList}) AND inspectiondate >= '${sinceDate}'`
       });
       const classResponse = await fetch(`${ENDPOINT}?${classParams}`);
       const classRows = await classResponse.json();
@@ -322,7 +324,7 @@
       document.getElementById('summaryHeading').textContent =
         `Building ${top.buildingid} (${top.boro}) has the most HPD violations in the dataset`;
       document.getElementById('summarySubtext').textContent =
-        `${Number(top.violation_count).toLocaleString()} violations, confirmed against the full dataset`;
+        `${Number(top.violation_count).toLocaleString()} violations in the last 5 years`;
 
       const second = rows[1];
       const topCount = Number(top.violation_count);
@@ -333,9 +335,11 @@
     }
 
     async function loadBoroughSeverity() {
+      const sinceDate = isoDateYearsAgo(5);
       const params = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "boro,class,count(*) as cnt",
+        "$where": `inspectiondate >= '${sinceDate}'`,
         "$group": "boro,class"
       });
       const response = await fetch(`${ENDPOINT}?${params}`);
