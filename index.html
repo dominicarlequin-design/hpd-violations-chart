@@ -50,6 +50,7 @@
     #dateRange { margin-bottom: 24px; }
     .section-subtext { margin-bottom: 16px; }
     .chart-card {
+      position: relative;
       background: #fff;
       border: 1px solid var(--hairline);
       border-radius: 6px;
@@ -61,9 +62,77 @@
       border-top: 1px solid var(--hairline);
       margin: 48px 0;
     }
+    #searchForm {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    #buildingSearchInput {
+      flex: 1;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+    }
+    #buildingSearchInput:disabled {
+      background: var(--sage-light);
+      color: var(--stone);
+      cursor: not-allowed;
+    }
+    #buildingSearchButton {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      background: var(--ink);
+      color: var(--cream);
+      cursor: pointer;
+    }
+    #buildingSearchButton:disabled {
+      background: var(--stone);
+      cursor: not-allowed;
+    }
+    #searchError {
+      color: var(--clay);
+      font-size: 0.85em;
+      margin: 0 0 8px;
+    }
+    .chart-skeleton {
+      position: absolute;
+      inset: 20px;
+      border-radius: 4px;
+      background: var(--hairline);
+      animation: skeleton-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
   </style>
 </head>
 <body>
+  <section id="buildingSearch">
+    <h2>Search a Building</h2>
+    <p class="section-subtext">Look up a specific Building ID to see its violation class breakdown.</p>
+    <form id="searchForm">
+      <input type="text" id="buildingSearchInput" placeholder="e.g. 393321" autocomplete="off" required />
+      <button type="submit" id="buildingSearchButton">Search</button>
+    </form>
+    <p id="searchError" hidden></p>
+    <div class="chart-card">
+      <div class="chart-skeleton" id="searchSkeleton" hidden></div>
+      <canvas id="searchChart"></canvas>
+    </div>
+    <p id="searchResultText"></p>
+  </section>
+
+  <hr class="section-divider" />
+
   <section id="topViolator">
     <h2 id="summaryHeading">Loading top building...</h2>
     <p id="summarySubtext"></p>
@@ -251,6 +320,90 @@
 
       renderBoroughChart(boroughClassCounts);
     }
+
+    let searchChartInstance = null;
+
+    function setSearchLoading(isLoading) {
+      document.getElementById('buildingSearchInput').disabled = isLoading;
+      document.getElementById('buildingSearchButton').disabled = isLoading;
+      document.getElementById('searchSkeleton').hidden = !isLoading;
+    }
+
+    function renderSearchChart(buildingId, counts) {
+      const total = counts.A + counts.B + counts.C;
+
+      if (searchChartInstance) {
+        searchChartInstance.destroy();
+        searchChartInstance = null;
+      }
+
+      if (total === 0) {
+        document.getElementById('searchResultText').textContent =
+          `No violations found for Building ${buildingId}.`;
+        return;
+      }
+
+      searchChartInstance = new Chart(document.getElementById('searchChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Class A', 'Class B', 'Class C'],
+          datasets: [{
+            data: [counts.A, counts.B, counts.C],
+            backgroundColor: [classColors.A, classColors.B, classColors.C]
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, title: { display: true, text: 'Violations' } } }
+        }
+      });
+
+      document.getElementById('searchResultText').textContent =
+        `Building ${buildingId}: ${total.toLocaleString()} total violations.`;
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const searchErrorEl = document.getElementById('searchError');
+      const buildingId = document.getElementById('buildingSearchInput').value.trim();
+
+      searchErrorEl.hidden = true;
+      document.getElementById('searchResultText').textContent = '';
+
+      if (!/^\d+$/.test(buildingId)) {
+        searchErrorEl.textContent = 'Enter a numeric Building ID.';
+        searchErrorEl.hidden = false;
+        return;
+      }
+
+      setSearchLoading(true);
+
+      try {
+        const params = new URLSearchParams({
+          "$$app_token": APP_TOKEN,
+          "$select": "class,count(*) as cnt",
+          "$where": `buildingid='${buildingId}'`,
+          "$group": "class"
+        });
+        const response = await fetch(`${ENDPOINT}?${params}`);
+        if (!response.ok) throw new Error('Request failed');
+        const rows = await response.json();
+
+        const counts = { A: 0, B: 0, C: 0 };
+        rows.forEach(row => {
+          if (Object.prototype.hasOwnProperty.call(counts, row.class)) {
+            counts[row.class] = Number(row.cnt);
+          }
+        });
+
+        renderSearchChart(buildingId, counts);
+      } catch (err) {
+        searchErrorEl.textContent = 'Something went wrong fetching that building. Try again.';
+        searchErrorEl.hidden = false;
+      } finally {
+        setSearchLoading(false);
+      }
+    });
 
     loadData();
     loadBoroughSeverity();
