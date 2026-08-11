@@ -354,6 +354,12 @@
     let searchChartInstance = null;
     let lastSearchedBuildingId = null;
 
+    function isoDateYearsAgo(years) {
+      const d = new Date();
+      d.setUTCFullYear(d.getUTCFullYear() - years);
+      return d.toISOString().slice(0, 10);
+    }
+
     function setSearchLoading(isLoading) {
       document.getElementById('buildingSearchInput').disabled = isLoading;
       document.getElementById('buildingSearchButton').disabled = isLoading;
@@ -410,10 +416,11 @@
       setSearchLoading(true);
 
       try {
+        const sinceDate = isoDateYearsAgo(5);
         const params = new URLSearchParams({
           "$$app_token": APP_TOKEN,
           "$select": "class,count(*) as cnt",
-          "$where": `buildingid='${buildingId}'`,
+          "$where": `buildingid='${buildingId}' AND inspectiondate >= '${sinceDate}'`,
           "$group": "class"
         });
         const response = await fetch(`${ENDPOINT}?${params}`);
