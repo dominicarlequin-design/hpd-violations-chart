@@ -254,6 +254,53 @@
       0%, 100% { opacity: 0.5; }
       50% { opacity: 1; }
     }
+
+    /* Desktop-only (>=1440px): compact spacing/sizing to fit one viewport, no scroll.
+       Mobile/tablet layout above is untouched by this block. */
+    @media (min-width: 1440px) {
+      body {
+        margin: 20px auto 24px;
+      }
+      .masthead {
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+      }
+      h1.title {
+        margin: 14px 0 6px;
+      }
+      p.dek {
+        margin: 0 0 16px;
+      }
+      .section-divider {
+        margin: 12px 0;
+      }
+      #searchForm.search-row {
+        margin-bottom: 6px;
+      }
+      .toggle-row {
+        margin-bottom: 12px;
+      }
+      .finding {
+        margin: 12px 0 4px;
+      }
+      .methodology-note {
+        font-size: 11.5px;
+        padding: 8px 10px;
+        margin: 8px 0 10px;
+      }
+      #dateRange {
+        margin-bottom: 6px;
+      }
+      .chart-card {
+        height: 190px;
+        margin: 6px 0;
+        padding: 12px;
+      }
+      .annotation {
+        font-size: 13px;
+        margin-top: 8px;
+      }
+    }
   </style>
 </head>
 <body>
