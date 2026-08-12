@@ -6,7 +6,7 @@ A live dashboard analyzing 2.9M+ NYC HPD housing violation records, pulled direc
 
 The dashboard surfaces three views into NYC's Housing Preservation & Development (HPD) violation data:
 
-- **Top violators citywide** — the 10 buildings with the most recorded violations
+- **Top violators citywide** — the 10 buildings with the most recorded violations, broken down by severity class (A/B/C)
 - **Severity by borough** — the share of Class A (minor), B, and C (hazardous) violations in each borough
 - **Building search** — look up any building by ID to see its own violation class breakdown
 
@@ -16,11 +16,40 @@ All charts and the search feature query the live dataset directly, so the number
 
 Across the full historical dataset, **Building 808705 in Brooklyn** is the single worst violator citywide — **2,482 recorded violations**, 38% more than the next-highest building.
 
-> Note: the top-violators and borough-severity charts on the live dashboard are scoped to the most recent 5 years of data by default (to keep queries fast), so the live numbers you see today will differ from this all-time figure. Use the building search below to pull a specific building's own history.
+> Note: the top-violators and borough-severity charts on the live dashboard are scoped to the most recent 12 months of data by default (to keep queries fast), so the live numbers you see today will differ from this all-time figure. Use the building search below to pull a specific building's own history.
 
 ## 🔍 Building Search
 
-Enter a Building ID to fetch that building's individual violation class breakdown (A/B/C) for the last 5 years, rendered as its own chart. Handles loading, empty-result, and error states independently of the rest of the page — a failed or empty search never disturbs the two auto-loaded charts above it.
+Enter a Building ID to fetch that building's individual violation class breakdown (A/B/C) for the last 12 months, rendered as its own chart. Handles loading, empty-result, and error states independently of the rest of the page — a failed or empty search never disturbs the two auto-loaded charts above it.
+
+## 📝 Changelog
+
+**Data window narrowed from 5 years to a rolling 12 months.** The top-violators
+chart, borough-severity chart, and building search now query the last 12
+months instead of the last 5 years. This keeps the numbers closer to current
+conditions, but it also means the leaderboard can shift as the window rolls
+forward — the building leading right now is not necessarily the one that led
+under the older 5-year window.
+
+**Severity-class breakdown (A/B/C) added to the top-violators chart.**
+Previously only the building-search feature broke violations down by class;
+the top-10 chart showed raw totals only. It's now a stacked bar by class,
+matching the search feature.
+
+**Ranking is raw violation count only, not severity-weighted.** A building
+near the top of the list could be dominated by minor Class A violations,
+while a building further down could have fewer total violations but a worse
+mix of hazardous Class C ones. This is a known limitation, not something the
+ranking corrects for.
+
+**Why the leader can differ from earlier versions of this dashboard:**
+narrowing the window from 5 years to 12 months surfaces a different top
+building whenever the wider window's leader isn't also the leader in the
+shorter one. Rather than hardcoding a specific building here (which would go
+stale the next time the data updates), the live dashboard now shows this
+comparison directly — a note under the top-violator finding names the
+current 12-month leader and, if different, the building that led under the
+old 5-year window. Open the app for the current answer.
 
 ## 👥 Who It's For
 
