@@ -11,120 +11,162 @@
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <style>
     :root {
-      --cream: #FAF7F2;
-      --ink: #26392E;
-      --sage: #7C9A82;
-      --sage-light: #EAF0EA;
-      --butter: #E3B23C;
-      --clay: #A8402F;
-      --clay-light: #F6E8E4;
-      --stone: #6B6357;
-      --hairline: #E2DACB;
+      --paper: #FAF9F6;
+      --paper-dim: #F1EFEA;
+      --ink: #141311;
+      --ink-soft: #3A362F;
+      --gray: #726C61;
+      --line: #D9D5CC;
+      --brick: #A1341F;
+      --brick-light: #F5E6E1;
     }
     * { box-sizing: border-box; }
     body {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      max-width: 700px;
-      margin: 20px auto;
-      padding: 0 20px;
-      background: var(--cream);
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      max-width: 760px;
+      margin: 32px auto 80px;
+      padding: 0 28px;
+      background: var(--paper);
       color: var(--ink);
     }
     h2 {
-      font-family: 'Instrument Serif', serif;
+      font-family: 'Newsreader', serif;
       font-style: italic;
-      font-weight: 400;
+      font-weight: 500;
       font-size: 24px;
       margin-top: 0;
       margin-bottom: 3px;
       line-height: 1.15;
     }
-    p { color: var(--stone); margin-top: 0; }
+    p { color: var(--gray); margin-top: 0; }
     #dateRange, .section-subtext {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.75em;
-      color: var(--stone);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--gray);
     }
     #dateRange { margin-bottom: 8px; }
     .section-subtext { margin-bottom: 8px; }
-    #summarySubtext, #insightText, #boroughInsightText {
-      font-size: 0.85em;
-      line-height: 1.4;
+    .stat-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: var(--gray);
+      margin: 0;
     }
+    .annotation {
+      border-left: 2px solid var(--line);
+      padding-left: 16px;
+      margin: 12px 0 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink-soft);
+    }
+    .annotation b { color: var(--brick); }
     .chart-card {
       position: relative;
-      background: #fff;
-      border: 1px solid var(--hairline);
-      border-radius: 6px;
+      background: var(--paper-dim);
+      border: 1px solid var(--line);
+      border-radius: 4px;
       padding: 16px;
       margin: 8px 0;
       height: 240px;
     }
     .section-divider {
       border: none;
-      border-top: 1px solid var(--hairline);
+      border-top: 1px solid var(--line);
       margin: 20px 0;
     }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 20px;
+    }
     .view-toggle {
-      display: inline-flex;
-      gap: 4px;
-      background: var(--sage-light);
-      border-radius: 8px;
-      padding: 4px;
-      margin-bottom: 10px;
+      display: flex;
+      gap: 22px;
+    }
+    .toggle-row .section-subtext {
+      margin-bottom: 0;
+      padding-bottom: 12px;
     }
     .toggle-btn {
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 600;
       font-size: 13px;
-      padding: 6px 12px;
+      padding: 0 0 12px;
+      margin-bottom: -1px;
       border: none;
-      border-radius: 6px;
+      border-bottom: 2px solid transparent;
       background: transparent;
-      color: var(--stone);
+      color: var(--gray);
       cursor: pointer;
     }
     .toggle-btn.active {
-      background: var(--ink);
-      color: var(--cream);
+      color: var(--ink);
+      border-bottom-color: var(--brick);
     }
-    #searchForm {
+    .finding {
+      display: flex;
+      gap: 16px;
+      margin: 20px 0 6px;
+    }
+    .finding .mark {
+      width: 3px;
+      background: var(--brick);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .finding-body h2 {
+      line-height: 1.28;
+      margin-bottom: 6px;
+    }
+    .finding-body h2 .num {
+      font-style: normal;
+      color: var(--brick);
+    }
+    #searchForm.search-row {
       display: flex;
       gap: 8px;
       margin-bottom: 8px;
     }
     #buildingSearchInput {
       flex: 1;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 14px;
-      padding: 10px 12px;
-      border: 1px solid var(--hairline);
-      border-radius: 6px;
-      background: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--paper);
       color: var(--ink);
     }
     #buildingSearchInput:disabled {
-      background: var(--sage-light);
-      color: var(--stone);
+      background: var(--paper-dim);
+      color: var(--gray);
       cursor: not-allowed;
     }
     #buildingSearchButton {
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 600;
-      font-size: 14px;
-      padding: 10px 16px;
+      font-size: 13px;
+      padding: 0 20px;
       border: none;
-      border-radius: 6px;
+      border-radius: 3px;
       background: var(--ink);
-      color: var(--cream);
+      color: var(--paper);
       cursor: pointer;
     }
+    #buildingSearchButton:hover:not(:disabled) {
+      background: var(--brick);
+    }
     #buildingSearchButton:disabled {
-      background: var(--stone);
+      background: var(--gray);
       cursor: not-allowed;
     }
     #searchError[hidden] {
@@ -134,8 +176,8 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      background: var(--clay-light);
-      border: 1px solid var(--clay);
+      background: var(--brick-light);
+      border: 1px solid var(--brick);
       border-radius: 6px;
       padding: 10px 12px;
       margin: 0 0 8px;
@@ -143,19 +185,19 @@
     #searchErrorText {
       flex: 1;
       margin: 0;
-      color: var(--clay);
+      color: var(--brick);
       font-size: 0.85em;
     }
     #searchRetryButton {
       flex-shrink: 0;
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 600;
       font-size: 0.85em;
       padding: 6px 12px;
-      border: 1px solid var(--clay);
+      border: 1px solid var(--brick);
       border-radius: 6px;
       background: transparent;
-      color: var(--clay);
+      color: var(--brick);
       cursor: pointer;
     }
     #searchRetryButton:disabled {
@@ -166,7 +208,7 @@
       position: absolute;
       inset: 20px;
       border-radius: 4px;
-      background: var(--hairline);
+      background: var(--line);
       animation: skeleton-pulse 1.4s ease-in-out infinite;
     }
     @keyframes skeleton-pulse {
@@ -178,7 +220,7 @@
 <body>
   <section id="buildingSearch">
     <h2>Search a Building</h2>
-    <form id="searchForm">
+    <form id="searchForm" class="search-row">
       <input type="text" id="buildingSearchInput" placeholder="Enter a Building ID to see its violation history (e.g. 393321)" autocomplete="off" required />
       <button type="submit" id="buildingSearchButton">Search</button>
     </form>
@@ -196,33 +238,42 @@
   <hr class="section-divider" />
 
   <section id="violationsOverview">
-    <div class="view-toggle" role="tablist">
-      <button type="button" class="toggle-btn active" id="viewByBuildingBtn" role="tab" aria-selected="true">By Building</button>
-      <button type="button" class="toggle-btn" id="viewByBoroughBtn" role="tab" aria-selected="false">By Borough</button>
+    <div class="toggle-row">
+      <div class="view-toggle" role="tablist">
+        <button type="button" class="toggle-btn active" id="viewByBuildingBtn" role="tab" aria-selected="true">By Building</button>
+        <button type="button" class="toggle-btn" id="viewByBoroughBtn" role="tab" aria-selected="false">By Borough</button>
+      </div>
+      <p class="section-subtext">Showing violations from the past 12 months.</p>
     </div>
-    <p class="section-subtext">Showing violations from the past 12 months.</p>
 
     <div id="byBuildingPanel">
-      <h2 id="summaryHeading">Loading top building...</h2>
-      <p id="summarySubtext"></p>
+      <div class="finding">
+        <div class="mark"></div>
+        <div class="finding-body">
+          <h2 id="summaryHeading">Loading top building...</h2>
+          <p id="summarySubtext" class="stat-line"></p>
+        </div>
+      </div>
       <p id="dateRange">Loading date range...</p>
       <div class="chart-card"><canvas id="myChart"></canvas></div>
-      <p id="insightText">Loading...</p>
+      <p id="insightText" class="annotation">Loading...</p>
     </div>
 
     <div id="byBoroughPanel" hidden>
       <h2>Violation Severity by Borough</h2>
       <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough.</p>
       <div class="chart-card"><canvas id="boroughChart"></canvas></div>
-      <p id="boroughInsightText">Loading...</p>
+      <p id="boroughInsightText" class="annotation">Loading...</p>
     </div>
   </section>
 
   <script>
     const APP_TOKEN = "JGurc4mbAlizJjvfgIeKc6Th2";
     const ENDPOINT = "https://data.cityofnewyork.us/resource/csn4-vhvf.json";
-    // Class colors shared across charts: sage (minor) -> butter -> clay (hazardous)
-    const classColors = { A: "#7C9A82", B: "#E3B23C", C: "#A8402F" };
+    // Class colors shared across charts: sage (minor) -> gold -> brick (hazardous)
+    const classColors = { A: "#8A9A82", B: "#D4A94F", C: "#A1341F" };
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+    Chart.defaults.color = "#726C61";
 
     let buildingIds = [];
     let boroughs = [];
@@ -308,8 +359,11 @@
 
       const worst = boroughList[0];
       const best = boroughList[boroughList.length - 1];
-      document.getElementById('boroughInsightText').textContent =
-        `${worst} has the highest share of hazardous Class C violations at ${pct[worst].C.toFixed(1)}%, compared to ${pct[best].C.toFixed(1)}% in ${best}.`;
+      document.getElementById('boroughInsightText').replaceChildren(
+        document.createTextNode(`${worst} has the highest share of hazardous Class C violations at `),
+        Object.assign(document.createElement('b'), { textContent: `${pct[worst].C.toFixed(1)}%` }),
+        document.createTextNode(`, compared to ${pct[best].C.toFixed(1)}% in ${best}.`)
+      );
     }
 
     async function loadData() {
@@ -368,16 +422,22 @@
       const rateSuffix = monthsSpanned >= 1
         ? ` (~${Math.round(topCount / monthsSpanned)}/month)`
         : '';
-      document.getElementById('summaryHeading').textContent =
-        `Building ${top.buildingid} (${top.boro}) has the most HPD violations in the dataset`;
+      document.getElementById('summaryHeading').replaceChildren(
+        document.createTextNode('Building '),
+        Object.assign(document.createElement('span'), { className: 'num', textContent: top.buildingid }),
+        document.createTextNode(` (${top.boro}) has the most HPD violations in the dataset`)
+      );
       document.getElementById('summarySubtext').textContent =
         `${topCount.toLocaleString()} violations in the last 12 months${rateSuffix}`;
 
       const second = rows[1];
       const secondCount = Number(second.violation_count);
       const percentDiff = Math.round(((topCount - secondCount) / secondCount) * 100);
-      document.getElementById('insightText').textContent =
-        `The gap at the top is the finding. Building ${top.buildingid} has ${topCount.toLocaleString()} violations — ${percentDiff}% more than the second-place building, ${second.buildingid}, at ${secondCount.toLocaleString()}. The remaining 9 buildings cluster within a tight range of each other.`;
+      document.getElementById('insightText').replaceChildren(
+        document.createTextNode(`The gap at the top is the finding. Building ${top.buildingid} has `),
+        Object.assign(document.createElement('b'), { textContent: `${topCount.toLocaleString()} violations` }),
+        document.createTextNode(` — ${percentDiff}% more than the second-place building, ${second.buildingid}, at ${secondCount.toLocaleString()}. The remaining 9 buildings cluster within a tight range of each other.`)
+      );
     }
 
     async function loadBoroughSeverity() {
