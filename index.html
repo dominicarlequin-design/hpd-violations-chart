@@ -200,7 +200,7 @@
       <button type="button" class="toggle-btn active" id="viewByBuildingBtn" role="tab" aria-selected="true">By Building</button>
       <button type="button" class="toggle-btn" id="viewByBoroughBtn" role="tab" aria-selected="false">By Borough</button>
     </div>
-    <p class="section-subtext">Showing violations from the past 5 years.</p>
+    <p class="section-subtext">Showing violations from the past 12 months.</p>
 
     <div id="byBuildingPanel">
       <h2 id="summaryHeading">Loading top building...</h2>
@@ -313,7 +313,7 @@
     }
 
     async function loadData() {
-      const sinceDate = isoDateYearsAgo(5);
+      const sinceDate = isoDateMonthsAgo(12);
       const params = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "buildingid,boro,count(*) as violation_count",
@@ -329,7 +329,7 @@
       buildingIds = rows.map(row => row.buildingid);
       boroughs = rows.map(row => row.boro);
 
-      // Date range covered by the violations behind these buildings, within the 5-year window
+      // Date range covered by the violations behind these buildings, within the 12-month window
       const idList = buildingIds.map(id => `'${id}'`).join(',');
       const rangeParams = new URLSearchParams({
         "$$app_token": APP_TOKEN,
@@ -342,7 +342,7 @@
       document.getElementById('dateRange').textContent =
         `Violations recorded ${fmt(range.mindate)} – ${fmt(range.maxdate)}`;
 
-      // Class (A/B/C) breakdown for these same buildings, within the 5-year window
+      // Class (A/B/C) breakdown for these same buildings, within the 12-month window
       const classParams = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "buildingid,class,count(*) as cnt",
@@ -363,13 +363,17 @@
       renderChart();
 
       const top = rows[0];
+      const topCount = Number(top.violation_count);
+      const monthsSpanned = (new Date(range.maxdate) - new Date(range.mindate)) / (1000 * 60 * 60 * 24 * 30.44);
+      const rateSuffix = monthsSpanned >= 1
+        ? ` (~${Math.round(topCount / monthsSpanned)}/month)`
+        : '';
       document.getElementById('summaryHeading').textContent =
         `Building ${top.buildingid} (${top.boro}) has the most HPD violations in the dataset`;
       document.getElementById('summarySubtext').textContent =
-        `${Number(top.violation_count).toLocaleString()} violations in the last 5 years`;
+        `${topCount.toLocaleString()} violations in the last 12 months${rateSuffix}`;
 
       const second = rows[1];
-      const topCount = Number(top.violation_count);
       const secondCount = Number(second.violation_count);
       const percentDiff = Math.round(((topCount - secondCount) / secondCount) * 100);
       document.getElementById('insightText').textContent =
@@ -377,7 +381,7 @@
     }
 
     async function loadBoroughSeverity() {
-      const sinceDate = isoDateYearsAgo(5);
+      const sinceDate = isoDateMonthsAgo(12);
       const params = new URLSearchParams({
         "$$app_token": APP_TOKEN,
         "$select": "boro,class,count(*) as cnt",
@@ -400,9 +404,9 @@
     let searchChartInstance = null;
     let lastSearchedBuildingId = null;
 
-    function isoDateYearsAgo(years) {
+    function isoDateMonthsAgo(months) {
       const d = new Date();
-      d.setUTCFullYear(d.getUTCFullYear() - years);
+      d.setUTCMonth(d.getUTCMonth() - months);
       return d.toISOString().slice(0, 10);
     }
 
@@ -463,7 +467,7 @@
       setSearchLoading(true);
 
       try {
-        const sinceDate = isoDateYearsAgo(5);
+        const sinceDate = isoDateMonthsAgo(12);
         const params = new URLSearchParams({
           "$$app_token": APP_TOKEN,
           "$select": "class,count(*) as cnt",
