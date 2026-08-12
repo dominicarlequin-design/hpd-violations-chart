@@ -25,6 +25,35 @@
       --brick-light: #F5E6E1;
     }
     * { box-sizing: border-box; }
+    .masthead {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 14px;
+      margin-bottom: 6px;
+    }
+    .masthead .kicker, .masthead .date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--gray);
+    }
+    .masthead .kicker { letter-spacing: 0.08em; text-transform: uppercase; }
+    h1.title {
+      font-family: 'Newsreader', serif;
+      font-weight: 500;
+      font-size: 38px;
+      line-height: 1.08;
+      letter-spacing: -0.01em;
+      margin: 22px 0 8px;
+    }
+    p.dek {
+      font-size: 15px;
+      color: var(--gray);
+      line-height: 1.5;
+      margin: 0 0 30px;
+      max-width: 52ch;
+    }
     body {
       font-family: 'Inter', system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -67,6 +96,16 @@
       color: var(--ink-soft);
     }
     .annotation b { color: var(--brick); }
+    .methodology-note {
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--gray);
+      background: var(--paper-dim);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+    }
     .chart-card {
       position: relative;
       background: var(--paper-dim);
@@ -218,6 +257,13 @@
   </style>
 </head>
 <body>
+  <div class="masthead">
+    <span class="kicker">NYC Housing Data</span>
+    <span class="date">Updated live</span>
+  </div>
+  <h1 class="title">Which building has the most violations?</h1>
+  <p class="dek">A live breakdown of HPD housing violations across NYC's five boroughs, refreshed from the city's open data feed.</p>
+
   <section id="buildingSearch">
     <h2>Search a Building</h2>
     <form id="searchForm" class="search-row">
@@ -228,7 +274,7 @@
       <p id="searchErrorText"></p>
       <button type="button" id="searchRetryButton" hidden>Retry</button>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" id="searchChartCard" hidden>
       <div class="chart-skeleton" id="searchSkeleton" hidden></div>
       <canvas id="searchChart"></canvas>
     </div>
@@ -254,6 +300,7 @@
           <p id="summarySubtext" class="stat-line"></p>
         </div>
       </div>
+      <p id="methodologyNote" class="methodology-note"></p>
       <p id="dateRange">Loading date range...</p>
       <div class="chart-card"><canvas id="myChart"></canvas></div>
       <p id="insightText" class="annotation">Loading...</p>
@@ -438,6 +485,28 @@
         Object.assign(document.createElement('b'), { textContent: `${topCount.toLocaleString()} violations` }),
         document.createTextNode(` — ${percentDiff}% more than the second-place building, ${second.buildingid}, at ${secondCount.toLocaleString()}. The remaining 9 buildings cluster within a tight range of each other.`)
       );
+
+      loadMethodologyNote(top.buildingid);
+    }
+
+    async function loadMethodologyNote(currentTopId) {
+      const params = new URLSearchParams({
+        "$$app_token": APP_TOKEN,
+        "$select": "buildingid,boro,count(*) as violation_count",
+        "$where": `inspectiondate >= '${isoDateMonthsAgo(60)}'`,
+        "$group": "buildingid,boro",
+        "$order": "violation_count DESC",
+        "$limit": "1"
+      });
+      const response = await fetch(`${ENDPOINT}?${params}`);
+      const [wideTop] = await response.json();
+
+      const leaderSentence = wideTop && wideTop.buildingid !== currentTopId
+        ? `Under the wider 5-year window this dashboard used to show, Building ${wideTop.buildingid} in ${wideTop.boro} led instead.`
+        : `This same building also led under the wider 5-year window this dashboard used to show.`;
+
+      document.getElementById('methodologyNote').textContent =
+        `This ranking uses a rolling 12-month window rather than the 5-year window the dashboard originally used, so the leader can change as the window moves. ${leaderSentence} It also ranks by raw violation count only, not severity, so a building with many minor Class A violations can outrank one with fewer but more hazardous Class C violations.`;
     }
 
     async function loadBoroughSeverity() {
@@ -475,6 +544,7 @@
       document.getElementById('buildingSearchButton').disabled = isLoading;
       document.getElementById('searchRetryButton').disabled = isLoading;
       document.getElementById('searchSkeleton').hidden = !isLoading;
+      if (isLoading) document.getElementById('searchChartCard').hidden = false;
     }
 
     function showSearchError(message, { retryable }) {
@@ -496,11 +566,13 @@
       }
 
       if (total === 0) {
+        document.getElementById('searchChartCard').hidden = true;
         document.getElementById('searchResultText').textContent =
           `No violations found for Building ${buildingId}.`;
         return;
       }
 
+      document.getElementById('searchChartCard').hidden = false;
       searchChartInstance = new Chart(document.getElementById('searchChart'), {
         type: 'bar',
         data: {
@@ -548,6 +620,7 @@
         renderSearchChart(buildingId, counts);
       } catch (err) {
         console.error('Building search failed:', err);
+        document.getElementById('searchChartCard').hidden = true;
         showSearchError("Couldn't load this building's data. Try again.", { retryable: true });
       } finally {
         setSearchLoading(false);
