@@ -200,6 +200,7 @@
       <button type="button" class="toggle-btn active" id="viewByBuildingBtn" role="tab" aria-selected="true">By Building</button>
       <button type="button" class="toggle-btn" id="viewByBoroughBtn" role="tab" aria-selected="false">By Borough</button>
     </div>
+    <p class="section-subtext">Showing violations from the past 5 years.</p>
 
     <div id="byBuildingPanel">
       <h2 id="summaryHeading">Loading top building...</h2>
@@ -211,7 +212,7 @@
 
     <div id="byBoroughPanel" hidden>
       <h2>Violation Severity by Borough</h2>
-      <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough — live pull, last 5 years.</p>
+      <p class="section-subtext">Share of Class A (minor) to Class C (hazardous) violations by borough.</p>
       <div class="chart-card"><canvas id="boroughChart"></canvas></div>
       <p id="boroughInsightText">Loading...</p>
     </div>
