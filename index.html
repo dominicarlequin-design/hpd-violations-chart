@@ -324,12 +324,13 @@
 
     let buildingIds = [];
     let boroughs = [];
+    let addresses = [];
     let classCounts = { A: [], B: [], C: [] };
     let topChartInstance = null;
     let boroughChartInstance = null;
 
     function renderChart() {
-      const labels = buildingIds.map((id, i) => [id, boroughs[i]]);
+      const labels = addresses.map((addr, i) => [addr, boroughs[i]]);
 
       topChartInstance = new Chart(document.getElementById('myChart'), {
         type: 'bar',
@@ -347,13 +348,14 @@
             legend: { display: true },
             tooltip: {
               callbacks: {
+                title: items => `${labels[items[0].dataIndex][0]}, ${labels[items[0].dataIndex][1]} (Building ID ${buildingIds[items[0].dataIndex]})`,
                 footer: items => `Total: ${items.reduce((sum, item) => sum + item.parsed.y, 0)}`
               }
             }
           },
           scales: {
             y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Violations' } },
-            x: { stacked: true, title: { display: true, text: 'Building ID (Borough)' } }
+            x: { stacked: true, title: { display: true, text: 'Address (Borough)' } }
           }
         }
       });
@@ -417,9 +419,9 @@
       const sinceDate = isoDateMonthsAgo(12);
       const params = new URLSearchParams({
         "$$app_token": APP_TOKEN,
-        "$select": "buildingid,boro,count(*) as violation_count",
+        "$select": "buildingid,boro,housenumber,streetname,zip,count(*) as violation_count",
         "$where": `inspectiondate >= '${sinceDate}'`,
-        "$group": "buildingid,boro",
+        "$group": "buildingid,boro,housenumber,streetname,zip",
         "$order": "violation_count DESC",
         "$limit": "10"
       });
@@ -429,6 +431,7 @@
 
       buildingIds = rows.map(row => row.buildingid);
       boroughs = rows.map(row => row.boro);
+      addresses = rows.map(formatAddress);
 
       // Date range covered by the violations behind these buildings, within the 12-month window
       const idList = buildingIds.map(id => `'${id}'`).join(',');
@@ -465,17 +468,21 @@
 
       const top = rows[0];
       const topCount = Number(top.violation_count);
+      const topAddress = formatAddress(top);
       const monthsSpanned = (new Date(range.maxdate) - new Date(range.mindate)) / (1000 * 60 * 60 * 24 * 30.44);
       const rateSuffix = monthsSpanned >= 1
         ? ` (~${Math.round(topCount / monthsSpanned)}/month)`
         : '';
       document.getElementById('summaryHeading').replaceChildren(
-        document.createTextNode('Building '),
-        Object.assign(document.createElement('span'), { className: 'num', textContent: top.buildingid }),
-        document.createTextNode(` (${top.boro}) has the most HPD violations in the dataset`)
+        Object.assign(document.createElement('span'), {
+          className: 'num',
+          textContent: `${topAddress}, ${top.boro}`,
+          title: `Building ID ${top.buildingid}${top.zip ? ' · ZIP ' + top.zip : ''}`
+        }),
+        document.createTextNode(' has the most HPD violations in the dataset')
       );
       document.getElementById('summarySubtext').textContent =
-        `${topCount.toLocaleString()} violations in the last 12 months${rateSuffix}`;
+        `${topCount.toLocaleString()} violations in the last 12 months${rateSuffix} · Building ID ${top.buildingid}`;
 
       const second = rows[1];
       const secondCount = Number(second.violation_count);
@@ -492,9 +499,9 @@
     async function loadMethodologyNote(currentTopId) {
       const params = new URLSearchParams({
         "$$app_token": APP_TOKEN,
-        "$select": "buildingid,boro,count(*) as violation_count",
+        "$select": "buildingid,boro,housenumber,streetname,zip,count(*) as violation_count",
         "$where": `inspectiondate >= '${isoDateMonthsAgo(60)}'`,
-        "$group": "buildingid,boro",
+        "$group": "buildingid,boro,housenumber,streetname,zip",
         "$order": "violation_count DESC",
         "$limit": "1"
       });
@@ -502,7 +509,7 @@
       const [wideTop] = await response.json();
 
       const leaderSentence = wideTop && wideTop.buildingid !== currentTopId
-        ? `Under the wider 5-year window this dashboard used to show, Building ${wideTop.buildingid} in ${wideTop.boro} led instead.`
+        ? `Under the wider 5-year window this dashboard used to show, ${formatAddress(wideTop)}, ${wideTop.boro} (Building ID ${wideTop.buildingid}) led instead.`
         : `This same building also led under the wider 5-year window this dashboard used to show.`;
 
       document.getElementById('methodologyNote').textContent =
@@ -537,6 +544,14 @@
       const d = new Date();
       d.setUTCMonth(d.getUTCMonth() - months);
       return d.toISOString().slice(0, 10);
+    }
+
+    function toTitleCase(str) {
+      return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function formatAddress(row) {
+      return `${row.housenumber} ${toTitleCase(row.streetname)}`.trim();
     }
 
     function setSearchLoading(isLoading) {
