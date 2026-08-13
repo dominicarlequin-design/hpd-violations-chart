@@ -445,11 +445,23 @@ a { color: inherit; }
 }
 
 .severity-card {
+  display: block;
   padding: 22px;
   background: var(--white);
   border: 1px solid #16233d14;
   border-radius: 10px;
   border-top: 4px solid var(--gray);
+  text-decoration: none;
+}
+
+.severity-card-clickable {
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.severity-card-clickable:hover {
+  transform: translateY(-2px);
+  border-color: var(--amber);
 }
 
 .severity-card-a { border-top-color: var(--green); }

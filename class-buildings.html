@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buildings by Class — HPD Violations Chart</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="container">
+    <a class="back-link" href="severity-key.html">← Back to severity key</a>
+
+    <div class="page-header">
+      <div class="eyebrow" id="page-eyebrow"><span class="eyebrow-dot"></span></div>
+      <h1 class="page-title serif" id="page-title">Buildings</h1>
+      <p class="page-subhead" id="page-subhead"></p>
+    </div>
+
+    <div id="state-area"><div class="state-msg">Loading…</div></div>
+    <div class="rank-list" id="rank-list"></div>
+
+    <div class="site-footer">
+      Data via NYC Housing Preservation &amp; Development (HPD), published through <a href="https://opendata.cityofnewyork.us" target="_blank" rel="noopener">NYC Open Data</a>.
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      var cls = (new URLSearchParams(location.search).get('class') || '').toUpperCase();
+      var stateEl = document.getElementById('state-area');
+      var listEl = document.getElementById('rank-list');
+      var cutoff = HPD.cutoffISO(HPD.WINDOW_MONTHS);
+      var cache = {}; // key -> { classPromise, trendPromise, bar, trend }
+      var expandedKey = null;
+
+      if (HPD.CLASS_ORDER.indexOf(cls) === -1) {
+        document.getElementById('page-eyebrow').style.display = 'none';
+        document.getElementById('page-title').textContent = 'Unknown class';
+        document.getElementById('page-subhead').textContent = '';
+        stateEl.innerHTML = '<div class="state-msg state-error">No class specified (or an unrecognized one) — go back and pick Class A, B, or C from the severity key.</div>';
+        return;
+      }
+
+      document.getElementById('page-eyebrow').innerHTML = '<span class="eyebrow-dot" style="background:' + HPD.CLASS_COLOR[cls] + ';"></span>' + HPD.CLASS_TAGLINE[cls];
+      document.getElementById('page-eyebrow').style.color = HPD.CLASS_COLOR[cls];
+      document.getElementById('page-title').textContent = 'Buildings with open ' + HPD.CLASS_LABEL[cls] + ' violations';
+      document.getElementById('page-subhead').textContent = 'The 10 buildings with the most ' + HPD.CLASS_LABEL[cls] + ' violations in the past ' + HPD.WINDOW_MONTHS + ' months, ranked by count. Hover a row for a full severity preview; click to expand the building’s full breakdown and trend.';
+
+      function cacheFor(row) {
+        var key = HPD.buildKey(row);
+        if (!cache[key]) cache[key] = {};
+        return cache[key];
+      }
+
+      function getClassBar(row) {
+        var c = cacheFor(row);
+        if (!c.classPromise) {
+          var where = HPD.buildWhere(row) + " AND inspectiondate>='" + cutoff + "'";
+          var url = HPD.sodaUrl({ $select: 'class,count(*) as cnt', $where: where, $group: 'class' });
+          c.classPromise = HPD.fetchSoda(url).then(function (data) {
+            c.bar = HPD.buildClassBar(data);
+            return c.bar;
+          });
+        }
+        return c.classPromise;
+      }
+
+      function getTrend(row) {
+        var c = cacheFor(row);
+        if (!c.trendPromise) {
+          var where = HPD.buildWhere(row) + " AND inspectiondate>='" + cutoff + "'";
+          var url = HPD.sodaUrl({ $select: 'date_trunc_ym(inspectiondate) as month,class,count(*) as cnt', $where: where, $group: 'month,class', $order: 'month' });
+          c.trendPromise = HPD.fetchSoda(url).then(function (data) {
+            c.trend = HPD.buildStackedTrend(data, HPD.WINDOW_MONTHS);
+            return c.trend;
+          });
+        }
+        return c.trendPromise;
+      }
+
+      function load() {
+        stateEl.innerHTML = '<div class="state-msg">Loading…</div>';
+        listEl.innerHTML = '';
+        var url = HPD.sodaUrl({
+          $select: 'buildingid,housenumber,streetname,boro,count(*) as cnt',
+          $where: "inspectiondate>='" + cutoff + "' AND class='" + cls + "'",
+          $group: 'buildingid,housenumber,streetname,boro',
+          $order: 'cnt DESC',
+          $limit: '10'
+        });
+        HPD.fetchSoda(url).then(function (data) {
+          stateEl.innerHTML = '';
+          if (!data || !data.length) {
+            stateEl.innerHTML = '<div class="state-msg">No ' + HPD.CLASS_LABEL[cls] + ' violations found in the past ' + HPD.WINDOW_MONTHS + ' months.</div>';
+            return;
+          }
+          render(data);
+        }).catch(function (e) {
+          stateEl.innerHTML = '<div class="state-msg state-error">' + HPD.escapeHtml(e.message) + ' — <a href="#" id="retry">Retry</a></div>';
+          document.getElementById('retry').addEventListener('click', function (ev) { ev.preventDefault(); load(); });
+        });
+      }
+
+      function render(rows) {
+        listEl.innerHTML = rows.map(function (row, i) {
+          var key = HPD.buildKey(row);
+          return '<div class="rank-row" data-key="' + HPD.escapeHtml(key) + '">' +
+            '<div class="rank-row-main">' +
+              '<div class="rank-left">' +
+                '<div class="rank-num serif">' + (i + 1) + '</div>' +
+                '<div>' +
+                  '<div class="rank-address">' + HPD.escapeHtml(HPD.addressLabel(row)) + '</div>' +
+                  '<div class="rank-borough">' + HPD.escapeHtml(HPD.boroughDisplay(row.boro)) + '</div>' +
+                  '<div class="rank-preview-bar" id="preview-' + i + '"></div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="rank-right">' +
+                '<div class="rank-count">' + HPD.formatCount(row.cnt) + '</div>' +
+                '<div class="rank-caret" id="caret-' + i + '">+</div>' +
+              '</div>' +
+            '</div>' +
+            '<div id="detail-' + i + '"></div>' +
+          '</div>';
+        }).join('');
+
+        rows.forEach(function (row, i) {
+          var rowEl = listEl.children[i];
+          var mainEl = rowEl.querySelector('.rank-row-main');
+          var previewEl = document.getElementById('preview-' + i);
+          var previewLoaded = false;
+
+          mainEl.addEventListener('mouseenter', function () {
+            if (previewLoaded) return;
+            previewLoaded = true;
+            getClassBar(row).then(function (bar) {
+              previewEl.innerHTML = HPD.renderBreakdownBar(bar.segments);
+            }).catch(function () {});
+          });
+
+          mainEl.addEventListener('click', function () {
+            toggle(row, i);
+          });
+        });
+      }
+
+      function toggle(row, i) {
+        var key = HPD.buildKey(row);
+        var detailEl = document.getElementById('detail-' + i);
+        var caretEl = document.getElementById('caret-' + i);
+
+        if (expandedKey === key) {
+          expandedKey = null;
+          detailEl.innerHTML = '';
+          caretEl.textContent = '+';
+          return;
+        }
+        expandedKey = key;
+        caretEl.textContent = '−';
+        detailEl.innerHTML = '<div class="rank-detail"><div class="state-msg">Loading detail…</div></div>';
+
+        Promise.all([getClassBar(row), getTrend(row)]).then(function (results) {
+          if (expandedKey !== key) return;
+          var bar = results[0];
+          var trend = results[1];
+          detailEl.innerHTML =
+            '<div class="rank-detail">' +
+              '<div class="rank-detail-label">Violations by class</div>' +
+              HPD.renderBreakdownBar(bar.segments) +
+              HPD.renderBreakdownLegend(bar.segments) +
+              '<div class="rank-detail-label" style="margin-top:20px;">Past 12 months</div>' +
+              '<div class="trend-chart-wrap">' + HPD.renderTrendChart(trend) + '</div>' +
+            '</div>';
+        }).catch(function (e) {
+          if (expandedKey !== key) return;
+          detailEl.innerHTML = '<div class="rank-detail"><div class="state-msg state-error">' + HPD.escapeHtml(e.message) + '</div></div>';
+        });
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

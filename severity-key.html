@@ -61,14 +61,14 @@
         }
 
         var cards = HPD.CLASS_ORDER.map(function (c) {
-          return '<div class="severity-card severity-card-' + c.toLowerCase() + '">' +
+          return '<a class="severity-card severity-card-clickable severity-card-' + c.toLowerCase() + '" href="class-buildings.html?class=' + c + '">' +
             '<div class="severity-top-row">' +
               '<div><div class="severity-name serif">' + HPD.CLASS_LABEL[c] + '</div>' +
               '<div class="severity-tagline">' + HPD.CLASS_TAGLINE[c] + '</div></div>' +
               '<div class="severity-stat serif">' + pct(c) + '</div>' +
             '</div>' +
             '<p class="severity-desc">' + HPD.CLASS_DESCRIPTION[c] + '</p>' +
-          '</div>';
+          '</a>';
         });
 
         cards.push(
