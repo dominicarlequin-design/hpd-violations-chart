@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Severity Key — HPD Violations Chart</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="container">
+    <a class="back-link" href="index.html">← Back to overview</a>
+
+    <div class="page-header">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>Severity Key</div>
+      <h1 class="page-title serif">What each violation class means</h1>
+      <p class="page-subhead">HPD assigns every violation a class based on how hazardous the condition is. Shares below are citywide, past 12 months.</p>
+    </div>
+
+    <div id="state-area"><div class="state-msg">Loading citywide totals…</div></div>
+
+    <div class="severity-grid" id="severity-grid" style="display:none;"></div>
+
+    <div class="site-footer">
+      Data via NYC Housing Preservation &amp; Development (HPD), published through <a href="https://opendata.cityofnewyork.us" target="_blank" rel="noopener">NYC Open Data</a>.
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      var cutoff = HPD.cutoffISO(HPD.WINDOW_MONTHS);
+      var url = HPD.sodaUrl({
+        $select: 'class,count(*) as cnt',
+        $where: "inspectiondate>='" + cutoff + "'",
+        $group: 'class'
+      });
+
+      var stateEl = document.getElementById('state-area');
+      var gridEl = document.getElementById('severity-grid');
+
+      function load() {
+        stateEl.innerHTML = '<div class="state-msg">Loading citywide totals…</div>';
+        HPD.fetchSoda(url).then(function (data) {
+          stateEl.innerHTML = '';
+          render(data || []);
+        }).catch(function (e) {
+          stateEl.innerHTML = '<div class="state-msg state-error">' + HPD.escapeHtml(e.message) + ' — <a href="#" id="retry">Retry</a></div>';
+          document.getElementById('retry').addEventListener('click', function (ev) { ev.preventDefault(); load(); });
+        });
+      }
+
+      function render(rows) {
+        var counts = {};
+        rows.forEach(function (r) { counts[r.class] = (counts[r.class] || 0) + (parseInt(r.cnt, 10) || 0); });
+        var abcTotal = HPD.CLASS_ORDER.reduce(function (s, c) { return s + (counts[c] || 0); }, 0);
+
+        function pct(c) {
+          if (!abcTotal) return '0%';
+          return Math.round((counts[c] || 0) / abcTotal * 100) + '%';
+        }
+
+        var cards = HPD.CLASS_ORDER.map(function (c) {
+          return '<div class="severity-card severity-card-' + c.toLowerCase() + '">' +
+            '<div class="severity-top-row">' +
+              '<div><div class="severity-name serif">' + HPD.CLASS_LABEL[c] + '</div>' +
+              '<div class="severity-tagline">' + HPD.CLASS_TAGLINE[c] + '</div></div>' +
+              '<div class="severity-stat serif">' + pct(c) + '</div>' +
+            '</div>' +
+            '<p class="severity-desc">' + HPD.CLASS_DESCRIPTION[c] + '</p>' +
+          '</div>';
+        });
+
+        cards.push(
+          '<div class="severity-card severity-card-i">' +
+            '<div class="severity-top-row">' +
+              '<div><div class="severity-name serif">' + HPD.CLASS_LABEL.I + '</div>' +
+              '<div class="severity-tagline">' + HPD.CLASS_TAGLINE.I + '</div></div>' +
+              '<div class="severity-stat">Not rated</div>' +
+            '</div>' +
+            '<p class="severity-desc">' + HPD.CLASS_DESCRIPTION.I + '</p>' +
+          '</div>'
+        );
+
+        gridEl.innerHTML = cards.join('');
+        gridEl.style.display = 'grid';
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

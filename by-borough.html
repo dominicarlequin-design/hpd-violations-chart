@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>By Borough — HPD Violations Chart</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="container">
+    <a class="back-link" href="index.html">← Back to overview</a>
+
+    <div class="page-header">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>By Borough</div>
+      <h1 class="page-title serif">Violations by borough</h1>
+      <p class="page-subhead">Total HPD violations and severity mix per borough, past 12 months. Click a borough for its monthly trend.</p>
+    </div>
+
+    <div id="state-area"><div class="state-msg">Loading…</div></div>
+    <div class="borough-grid" id="borough-grid"></div>
+
+    <div class="borough-trend-section" id="trend-section" style="display:none;">
+      <div class="section-title" id="trend-title">Monthly trend</div>
+      <div class="trend-chart-wrap trend-chart-large" id="trend-chart-area"></div>
+    </div>
+
+    <div class="site-footer">
+      Data via NYC Housing Preservation &amp; Development (HPD), published through <a href="https://opendata.cityofnewyork.us" target="_blank" rel="noopener">NYC Open Data</a>.
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      var cutoff = HPD.cutoffISO(HPD.WINDOW_MONTHS);
+      var stateEl = document.getElementById('state-area');
+      var gridEl = document.getElementById('borough-grid');
+      var trendSection = document.getElementById('trend-section');
+      var trendTitle = document.getElementById('trend-title');
+      var trendArea = document.getElementById('trend-chart-area');
+      var boroughs = []; // [{ boro, bar, total }]
+      var selectedBoro = null;
+      var trendCache = {};
+
+      function load() {
+        stateEl.innerHTML = '<div class="state-msg">Loading…</div>';
+        var url = HPD.sodaUrl({
+          $select: 'boro,class,count(*) as cnt',
+          $where: "inspectiondate>='" + cutoff + "'",
+          $group: 'boro,class'
+        });
+        HPD.fetchSoda(url).then(function (data) {
+          stateEl.innerHTML = '';
+          if (!data || !data.length) {
+            stateEl.innerHTML = '<div class="state-msg">No violations found in the past ' + HPD.WINDOW_MONTHS + ' months.</div>';
+            return;
+          }
+          buildBoroughs(data);
+          render();
+          if (boroughs[0]) selectBorough(boroughs[0].boro);
+        }).catch(function (e) {
+          stateEl.innerHTML = '<div class="state-msg state-error">' + HPD.escapeHtml(e.message) + ' — <a href="#" id="retry">Retry</a></div>';
+          document.getElementById('retry').addEventListener('click', function (ev) { ev.preventDefault(); load(); });
+        });
+      }
+
+      function buildBoroughs(rows) {
+        var byBoro = {};
+        rows.forEach(function (r) {
+          byBoro[r.boro] = byBoro[r.boro] || [];
+          byBoro[r.boro].push(r);
+        });
+        boroughs = Object.keys(byBoro).map(function (boro) {
+          var bar = HPD.buildClassBar(byBoro[boro]);
+          return { boro: boro, bar: bar, total: bar.total };
+        }).sort(function (a, b) { return b.total - a.total; });
+      }
+
+      function render() {
+        gridEl.innerHTML = boroughs.map(function (b) {
+          return '<button type="button" class="borough-card" data-boro="' + HPD.escapeHtml(b.boro) + '">' +
+            '<div class="borough-name serif">' + HPD.escapeHtml(HPD.boroughDisplay(b.boro)) + '</div>' +
+            '<div class="borough-count">' + HPD.formatCount(b.total) + ' violations</div>' +
+            HPD.renderBreakdownBar(b.bar.segments) +
+          '</button>';
+        }).join('');
+        Array.prototype.forEach.call(gridEl.querySelectorAll('.borough-card'), function (el) {
+          el.addEventListener('click', function () { selectBorough(el.getAttribute('data-boro')); });
+        });
+      }
+
+      function selectBorough(boro) {
+        selectedBoro = boro;
+        Array.prototype.forEach.call(gridEl.querySelectorAll('.borough-card'), function (el) {
+          el.classList.toggle('selected', el.getAttribute('data-boro') === boro);
+        });
+        trendSection.style.display = 'block';
+        trendTitle.textContent = HPD.boroughDisplay(boro) + ' — monthly trend';
+        trendArea.innerHTML = '<div class="state-msg">Loading trend…</div>';
+
+        if (trendCache[boro]) {
+          trendArea.innerHTML = HPD.renderTrendChart(trendCache[boro]);
+          return;
+        }
+        var where = "boro='" + HPD.esc(boro) + "' AND inspectiondate>='" + cutoff + "'";
+        var url = HPD.sodaUrl({ $select: 'date_trunc_ym(inspectiondate) as month,class,count(*) as cnt', $where: where, $group: 'month,class', $order: 'month' });
+        HPD.fetchSoda(url).then(function (data) {
+          var trend = HPD.buildStackedTrend(data, HPD.WINDOW_MONTHS);
+          trendCache[boro] = trend;
+          if (selectedBoro !== boro) return;
+          trendArea.innerHTML = HPD.renderTrendChart(trend);
+        }).catch(function (e) {
+          if (selectedBoro !== boro) return;
+          trendArea.innerHTML = '<div class="state-msg state-error">' + HPD.escapeHtml(e.message) + '</div>';
+        });
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

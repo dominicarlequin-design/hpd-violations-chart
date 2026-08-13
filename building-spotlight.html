@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Building Spotlight — HPD Violations Chart</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="container">
+    <a class="back-link" href="index.html">← Back to overview</a>
+
+    <div class="page-header">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>Building Spotlight</div>
+    </div>
+
+    <div id="state-area"><div class="state-msg">Loading…</div></div>
+
+    <div id="profile" style="display:none;">
+      <div class="spotlight-page-address serif" id="p-address"></div>
+      <div class="spotlight-page-borough" id="p-borough"></div>
+
+      <div class="stat-row">
+        <div class="stat-block">
+          <div class="stat-num serif" id="stat-total">—</div>
+          <div class="stat-label">Total, past 12 months</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num serif" style="color:#4b7a53;" id="stat-a">—</div>
+          <div class="stat-label">Class A</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num serif" style="color:#c2790a;" id="stat-b">—</div>
+          <div class="stat-label">Class B</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num serif" style="color:#8a2a1d;" id="stat-c">—</div>
+          <div class="stat-label">Class C</div>
+        </div>
+      </div>
+
+      <div class="section-title">Severity breakdown</div>
+      <div id="breakdown-bar-area"></div>
+      <div class="class-def-rows" id="class-def-rows"></div>
+
+      <div class="section-title" style="margin-top:32px;">Past 12 months</div>
+      <div class="trend-chart-wrap trend-chart-large" id="trend-area"></div>
+    </div>
+
+    <div class="site-footer">
+      Data via NYC Housing Preservation &amp; Development (HPD), published through <a href="https://opendata.cityofnewyork.us" target="_blank" rel="noopener">NYC Open Data</a>.
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      var cutoff = HPD.cutoffISO(HPD.WINDOW_MONTHS);
+      var stateEl = document.getElementById('state-area');
+      var profileEl = document.getElementById('profile');
+
+      function load() {
+        stateEl.innerHTML = '<div class="state-msg">Loading…</div>';
+        profileEl.style.display = 'none';
+
+        var topUrl = HPD.sodaUrl({
+          $select: 'buildingid,housenumber,streetname,boro,count(*) as cnt',
+          $where: "inspectiondate>='" + cutoff + "'",
+          $group: 'buildingid,housenumber,streetname,boro',
+          $order: 'cnt DESC',
+          $limit: '1'
+        });
+
+        HPD.fetchSoda(topUrl).then(function (data) {
+          var row = data && data[0];
+          if (!row) {
+            stateEl.innerHTML = '<div class="state-msg">No violations found in the past ' + HPD.WINDOW_MONTHS + ' months.</div>';
+            return;
+          }
+          return loadDetail(row);
+        }).catch(function (e) {
+          stateEl.innerHTML = '<div class="state-msg state-error">' + HPD.escapeHtml(e.message) + ' — <a href="#" id="retry">Retry</a></div>';
+          document.getElementById('retry').addEventListener('click', function (ev) { ev.preventDefault(); load(); });
+        });
+      }
+
+      function loadDetail(row) {
+        var where = HPD.buildWhere(row) + " AND inspectiondate>='" + cutoff + "'";
+        var classUrl = HPD.sodaUrl({ $select: 'class,count(*) as cnt', $where: where, $group: 'class' });
+        var trendUrl = HPD.sodaUrl({ $select: 'date_trunc_ym(inspectiondate) as month,class,count(*) as cnt', $where: where, $group: 'month,class', $order: 'month' });
+        return Promise.all([HPD.fetchSoda(classUrl), HPD.fetchSoda(trendUrl)]).then(function (results) {
+          var bar = HPD.buildClassBar(results[0]);
+          var trend = HPD.buildStackedTrend(results[1], HPD.WINDOW_MONTHS);
+          render(row, bar, trend);
+        }).catch(function (e) {
+          stateEl.innerHTML = '<div class="state-msg state-error">' + HPD.escapeHtml(e.message) + '</div>';
+        });
+      }
+
+      function render(row, bar, trend) {
+        stateEl.innerHTML = '';
+        profileEl.style.display = 'block';
+
+        document.getElementById('p-address').textContent = HPD.addressLabel(row);
+        document.getElementById('p-borough').textContent = HPD.boroughDisplay(row.boro);
+
+        document.getElementById('stat-total').textContent = HPD.formatCount(bar.total);
+        document.getElementById('stat-a').textContent = HPD.formatCount(bar.counts.A || 0);
+        document.getElementById('stat-b').textContent = HPD.formatCount(bar.counts.B || 0);
+        document.getElementById('stat-c').textContent = HPD.formatCount(bar.counts.C || 0);
+
+        document.getElementById('breakdown-bar-area').innerHTML = HPD.renderBreakdownBar(bar.segments, { large: true });
+
+        document.getElementById('class-def-rows').innerHTML = HPD.CLASS_ORDER.map(function (c) {
+          return '<div class="class-def-row">' +
+            '<div class="class-def-label"><span class="legend-dot" style="background:' + HPD.CLASS_COLOR[c] + ';"></span>' + HPD.CLASS_LABEL[c] + '</div>' +
+            '<div class="class-def-text">' + HPD.CLASS_DESCRIPTION[c] + '</div>' +
+            '<div class="class-def-count">' + HPD.formatCount(bar.counts[c] || 0) + '</div>' +
+          '</div>';
+        }).join('');
+
+        document.getElementById('trend-area').innerHTML = HPD.renderTrendChart(trend);
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

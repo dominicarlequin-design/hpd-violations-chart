@@ -1,55 +1,47 @@
 # 📊 HPD Violations by Building
 
-A live dashboard analyzing 2.9M+ NYC HPD housing violation records, pulled directly from the Socrata Open Data API on every page load — not a static snapshot.
+A live dashboard on NYC HPD housing violation records, pulled directly from the Socrata Open Data API on every page load — not a static snapshot.
 
 ## 📊 Overview
 
-The dashboard surfaces three views into NYC's Housing Preservation & Development (HPD) violation data:
+The site is five static pages:
 
-- **Top violators citywide** — the 10 buildings with the most recorded violations, broken down by severity class (A/B/C)
-- **Severity by borough** — the share of Class A (minor), B, and C (hazardous) violations in each borough
-- **Building search** — look up any building by ID to see its own violation class breakdown
+- **Home** (`index.html`) — address search, plus a spotlight on the single most-cited building citywide
+- **Severity Key** (`severity-key.html`) — what Class A/B/C/I violations mean, with each class's live citywide share
+- **Top Buildings** (`top-buildings.html`) — the 10 most-cited buildings citywide, ranked, with per-building class breakdowns and 12-month trends
+- **By Borough** (`by-borough.html`) — violation totals and severity mix for each of the five boroughs, with monthly trends
+- **Building Spotlight** (`building-spotlight.html`) — full profile of the current #1 building: totals, class breakdown, and a 12-month trend
 
-All charts and the search feature query the live dataset directly, so the numbers reflect the current state of NYC's public violation records, not a cached or pre-computed copy.
-
-## 🏆 Key Finding
-
-Across the full historical dataset, **Building 808705 in Brooklyn** is the single worst violator citywide — **2,482 recorded violations**, 38% more than the next-highest building.
-
-> Note: the top-violators and borough-severity charts on the live dashboard are scoped to the most recent 12 months of data by default (to keep queries fast), so the live numbers you see today will differ from this all-time figure. Use the building search below to pull a specific building's own history.
+All five query the live dataset directly and independently — each page fetches its own data on load; nothing is cached or shared between pages.
 
 ## 🔍 Building Search
 
-Enter a Building ID to fetch that building's individual violation class breakdown (A/B/C) for the last 12 months, rendered as its own chart. Handles loading, empty-result, and error states independently of the rest of the page — a failed or empty search never disturbs the two auto-loaded charts above it.
+On the home page, search by street address (e.g. "170 West End Avenue"). Results are grouped by building and ordered by violation count. Selecting a result loads its class breakdown and 12-month trend. Loading, empty, and error states are handled independently of the rest of the page.
+
+## 🎨 Severity Classes
+
+- **Class A** — non-hazardous (paint, leaks, faulty fixtures)
+- **Class B** — hazardous (no heat/hot water, pests, broken locks)
+- **Class C** — immediately hazardous (no gas, fire hazards, structural danger)
+- **Class I** — administrative order; not tied to an inspection and not counted in the class breakdown
 
 ## 📝 Changelog
 
-**Data window narrowed from 5 years to a rolling 12 months.** The top-violators
-chart, borough-severity chart, and building search now query the last 12
-months instead of the last 5 years. This keeps the numbers closer to current
-conditions, but it also means the leaderboard can shift as the window rolls
-forward — the building leading right now is not necessarily the one that led
-under the older 5-year window.
+**Redesigned as five static pages.** Previously a single page with tabs
+(Search / Top Buildings / By Borough). Each view is now its own HTML file
+with its own independent data load, plus new Severity Key and Building
+Spotlight pages. Same Socrata endpoint and query patterns throughout.
 
-**Severity-class breakdown (A/B/C) added to the top-violators chart.**
-Previously only the building-search feature broke violations down by class;
-the top-10 chart showed raw totals only. It's now a stacked bar by class,
-matching the search feature.
+**Data window is a rolling 12 months.** All pages query the last 12 months
+by default, so the picture reflects current conditions rather than a
+building's full history. This also means the top-cited building can shift
+as the window rolls forward.
 
 **Ranking is raw violation count only, not severity-weighted.** A building
 near the top of the list could be dominated by minor Class A violations,
 while a building further down could have fewer total violations but a worse
 mix of hazardous Class C ones. This is a known limitation, not something the
 ranking corrects for.
-
-**Why the leader can differ from earlier versions of this dashboard:**
-narrowing the window from 5 years to 12 months surfaces a different top
-building whenever the wider window's leader isn't also the leader in the
-shorter one. Rather than hardcoding a specific building here (which would go
-stale the next time the data updates), the live dashboard now shows this
-comparison directly — a note under the top-violator finding names the
-current 12-month leader and, if different, the building that led under the
-old 5-year window. Open the app for the current answer.
 
 ## 👥 Who It's For
 
@@ -60,10 +52,9 @@ old 5-year window. Open the app for the current answer.
 ## 🏗️ Tech Stack
 
 - **JavaScript** — vanilla, no framework or build step
-- **Chart.js** — chart rendering (loaded via CDN)
-- **Socrata Open Data API** — live queries against NYC's HPD violations dataset, no backend or database
+- **Socrata Open Data API** — live queries against NYC's HPD violations dataset (`csn4-vhvf`), no backend or database
 
-The entire app is a single static `index.html` file.
+`app.js` holds the shared query/rendering helpers used by all five pages; `styles.css` holds the shared design tokens and components. No bundler — every page just links to both directly.
 
 ## 🚀 Setup & Deployment
 
@@ -75,6 +66,6 @@ cd hpd-violations-chart
 open index.html
 ```
 
-No install step, no server required — the page fetches live data directly from Socrata's public API in the browser. (If your browser restricts `fetch` from `file://` URLs, serve it instead with `python3 -m http.server` and open `localhost:8000`.)
+No install step, no server required — each page fetches live data directly from Socrata's public API in the browser. (If your browser restricts `fetch` from `file://` URLs, serve it instead with `python3 -m http.server` and open `localhost:8000`.)
 
 **Live deployment:** [hpd-violations-chart-dominicarlequi.vercel.app](https://hpd-violations-chart-dominicarlequi.vercel.app/)
